@@ -1,103 +1,161 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState, useMemo } from "react";
+import {
+  Box,
+  Heading,
+  Input,
+  Spinner,
+  SimpleGrid,
+  Stat,
+  Table
+} from "@chakra-ui/react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer
+} from "recharts";
+
+export default function Dashboard() {
+  const [emails, setEmails]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter]   = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/emails?email=${encodeURIComponent(filter)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        console.log("[Dashboard] fetched emails:", data);
+        setEmails(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("[Dashboard] fetch error:", err);
+        setLoading(false);
+      });
+  }, [filter]);
+
+  // Count any non‑bot-open as a human open
+  const totalSent = emails.length;
+  const totalOpened = emails.filter((e) =>
+    e.events.some((ev) =>
+      (ev.event === "OPEN" || ev.event === "STEALTH_OPEN") &&
+      ev.bot_preload === false
+    )
+  ).length;
+
+  // Group by subject for chart
+  const bySubject = useMemo(() => {
+    const map = {};
+    emails.forEach((e) => {
+      const key = e.subject;
+      if (!map[key]) map[key] = { subject: key, sent: 0, opened: 0 };
+      map[key].sent++;
+      if (e.events.some((ev) =>
+        (ev.event === "OPEN" || ev.event === "STEALTH_OPEN") &&
+        ev.bot_preload === false
+      )) {
+        map[key].opened++;
+      }
+    });
+    return Object.values(map)
+      .map(({ subject, sent, opened }) => ({
+        subject,
+        sent,
+        opened,
+        rate: +(opened / sent * 100).toFixed(1),
+      }))
+      .sort((a, b) => b.rate - a.rate);
+  }, [emails]);
+
+  if (loading) return <Spinner size="xl" />;
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <Box p={8}>
+      <Heading mb={4}>Email Tracking Dashboard</Heading>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      {/* Summary Stats */}
+      <SimpleGrid columns={[1, 2]} spacing={4} mb={8}>
+        <Stat.Root>
+          <Stat.Label>Total Sent</Stat.Label>
+          <Stat.ValueText>{totalSent}</Stat.ValueText>
+        </Stat.Root>
+        <Stat.Root>
+          <Stat.Label>Total Opened (human)</Stat.Label>
+          <Stat.ValueText>{totalOpened}</Stat.ValueText>
+        </Stat.Root>
+      </SimpleGrid>
+
+      {/* Open Rate by Subject Chart */}
+      <Heading size="md" mb={2}>Open Rate by Subject</Heading>
+      <Box mb={8} height="250px">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={bySubject} margin={{ top: 20, bottom: 20 }}>
+            <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
+            <YAxis unit="%" />
+            <Tooltip />
+            <Bar dataKey="rate" name="Open Rate (%)" />
+          </BarChart>
+        </ResponsiveContainer>
+      </Box>
+
+      {/* Search & Table */}
+      <Heading size="md" mb={2}>Search by Email</Heading>
+      <Input
+        placeholder="Type email address…"
+        mb={4}
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+      />
+
+      <Box overflowX="auto">
+        <Table.Root size="sm" striped showColumnBorder>
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeader>Email</Table.ColumnHeader>
+              <Table.ColumnHeader>Subject</Table.ColumnHeader>
+              <Table.ColumnHeader textAlign="end">Sent At</Table.ColumnHeader>
+              <Table.ColumnHeader textAlign="end">Human Opens</Table.ColumnHeader>
+              <Table.ColumnHeader textAlign="end">Last Opened</Table.ColumnHeader>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {emails.map((e) => {
+              // count & sort any non‑bot STEALTH_OPEN or OPEN events
+              const humanOpens = e.events
+                .filter((ev) =>
+                  (ev.event === "OPEN" || ev.event === "STEALTH_OPEN") &&
+                  ev.bot_preload === false
+                )
+                .sort(
+                  (a, b) =>
+                    new Date(b.timestamp).getTime() -
+                    new Date(a.timestamp).getTime()
+                );
+
+              return (
+                <Table.Row key={e._id}>
+                  <Table.Cell>{e.email}</Table.Cell>
+                  <Table.Cell>{e.subject}</Table.Cell>
+                  <Table.Cell textAlign="end">
+                    {new Date(e.sent_at).toLocaleString()}
+                  </Table.Cell>
+                  <Table.Cell textAlign="end">{humanOpens.length}</Table.Cell>
+                  <Table.Cell textAlign="end">
+                    {humanOpens[0]
+                      ? new Date(humanOpens[0].timestamp).toLocaleString()
+                      : "—"}
+                  </Table.Cell>
+                </Table.Row>
+              );
+            })}
+          </Table.Body>
+        </Table.Root>
+      </Box>
+    </Box>
   );
 }
