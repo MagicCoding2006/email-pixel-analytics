@@ -8,7 +8,8 @@ import {
   Spinner,
   SimpleGrid,
   Stat,
-  Table
+  Table,
+  Text
 } from "@chakra-ui/react";
 import {
   BarChart,
@@ -16,7 +17,9 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  ResponsiveContainer
+  ResponsiveContainer,
+  CartesianGrid,
+  Label
 } from "recharts";
 
 export default function Dashboard() {
@@ -24,43 +27,50 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter]   = useState("");
 
+  // normalize each record exactly once
+  function parseDate(value) {
+    if (!value) return null;
+    const d = value instanceof Date ? value : new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   useEffect(() => {
     setLoading(true);
     fetch(`/api/emails?email=${encodeURIComponent(filter)}`)
       .then((r) => r.json())
       .then((data) => {
-        console.log("[Dashboard] fetched emails:", data);
-        setEmails(data);
+        const normalized = data.map((e) => ({
+          ...e,
+          sent_at: parseDate(e.sent_at),
+          events: (e.events || []).map((ev) => ({
+            ...ev,
+            timestamp: parseDate(ev.timestamp),
+          })),
+        }));
+        setEmails(normalized);
         setLoading(false);
       })
-      .catch((err) => {
-        console.error("[Dashboard] fetch error:", err);
-        setLoading(false);
-      });
+      .catch(() => setLoading(false));
   }, [filter]);
 
-  // Count any non‑bot-open as a human open
-  const totalSent = emails.length;
-  const totalOpened = emails.filter((e) =>
-    e.events.some((ev) =>
-      (ev.event === "OPEN" || ev.event === "STEALTH_OPEN") &&
-      ev.bot_preload === false
-    )
-  ).length;
+  const isOpened = (e) =>
+    (e.events || []).some(
+      (ev) =>
+        (ev.event === "OPEN" || ev.event === "STEALTH_OPEN") &&
+        ev.bot_preload === false
+    );
 
-  // Group by subject for chart
+  const totalSent   = emails.length;
+  const totalOpened = emails.filter(isOpened).length;
+
+  // build subject stats: sent, opened, rate
   const bySubject = useMemo(() => {
     const map = {};
     emails.forEach((e) => {
-      const key = e.subject;
+      const key = e.subject || "(no subject)";
       if (!map[key]) map[key] = { subject: key, sent: 0, opened: 0 };
       map[key].sent++;
-      if (e.events.some((ev) =>
-        (ev.event === "OPEN" || ev.event === "STEALTH_OPEN") &&
-        ev.bot_preload === false
-      )) {
-        map[key].opened++;
-      }
+      if (isOpened(e)) map[key].opened++;
     });
     return Object.values(map)
       .map(({ subject, sent, opened }) => ({
@@ -72,13 +82,33 @@ export default function Dashboard() {
       .sort((a, b) => b.rate - a.rate);
   }, [emails]);
 
+  // custom tooltip for the subject chart
+  const SubjectTooltip = ({ active, payload, label }) => {
+    if (!active || !payload || !payload.length) return null;
+    const { sent, opened, rate } = payload[0].payload;
+    return (
+      <Box bg="white" p={2} border="1px solid #ccc">
+        <Text fontWeight="bold">{label}</Text>
+        <Text>Sent: {sent}</Text>
+        <Text>Opened: {opened}</Text>
+        <Text>Open Rate: {rate}%</Text>
+      </Box>
+    );
+  };
+
   if (loading) return <Spinner size="xl" />;
 
   return (
     <Box p={8}>
       <Heading mb={4}>Email Tracking Dashboard</Heading>
 
-      {/* Summary Stats */}
+      <Input
+        placeholder="Filter by email address…"
+        mb={6}
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+      />
+
       <SimpleGrid columns={[1, 2]} spacing={4} mb={8}>
         <Stat.Root>
           <Stat.Label>Total Sent</Stat.Label>
@@ -90,28 +120,27 @@ export default function Dashboard() {
         </Stat.Root>
       </SimpleGrid>
 
-      {/* Open Rate by Subject Chart */}
-      <Heading size="md" mb={2}>Open Rate by Subject</Heading>
-      <Box mb={8} height="250px">
+      <Heading size="md" mb={2}>Subject Performance</Heading>
+      <Box mb={8} height="300px">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={bySubject} margin={{ top: 20, bottom: 20 }}>
-            <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
-            <YAxis unit="%" />
-            <Tooltip />
-            <Bar dataKey="rate" name="Open Rate (%)" />
+          <BarChart data={bySubject} margin={{ top: 20, bottom: 60 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="subject"
+              interval={0}
+              tick={{ angle: -45, textAnchor: "end", fontSize: 12 }}
+              height={60}
+            >
+              <Label value="Subject" position="bottom" dy={40} />
+            </XAxis>
+            <YAxis />
+            <Tooltip content={<SubjectTooltip />} />
+            <Bar dataKey="opened" name="Opened" />
           </BarChart>
         </ResponsiveContainer>
       </Box>
 
-      {/* Search & Table */}
-      <Heading size="md" mb={2}>Search by Email</Heading>
-      <Input
-        placeholder="Type email address…"
-        mb={4}
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-      />
-
+      <Heading size="md" mb={2}>All Emails</Heading>
       <Box overflowX="auto">
         <Table.Root size="sm" striped showColumnBorder>
           <Table.Header>
@@ -125,16 +154,17 @@ export default function Dashboard() {
           </Table.Header>
           <Table.Body>
             {emails.map((e) => {
-              // count & sort any non‑bot STEALTH_OPEN or OPEN events
-              const humanOpens = e.events
-                .filter((ev) =>
-                  (ev.event === "OPEN" || ev.event === "STEALTH_OPEN") &&
-                  ev.bot_preload === false
+              const sentDate = e.sent_at;
+              const opens = (e.events || [])
+                .filter(
+                  (ev) =>
+                    (ev.event === "OPEN" ||
+                      ev.event === "STEALTH_OPEN") &&
+                    ev.bot_preload === false
                 )
                 .sort(
                   (a, b) =>
-                    new Date(b.timestamp).getTime() -
-                    new Date(a.timestamp).getTime()
+                    b.timestamp.getTime() - a.timestamp.getTime()
                 );
 
               return (
@@ -142,12 +172,32 @@ export default function Dashboard() {
                   <Table.Cell>{e.email}</Table.Cell>
                   <Table.Cell>{e.subject}</Table.Cell>
                   <Table.Cell textAlign="end">
-                    {new Date(e.sent_at).toLocaleString()}
+                    {sentDate
+                      ? sentDate.toLocaleString("en-US", {
+                          timeZone: "America/Indiana/Indianapolis",
+                          year:   "numeric",
+                          month:  "2-digit",
+                          day:    "2-digit",
+                          hour:   "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })
+                      : "—"}
                   </Table.Cell>
-                  <Table.Cell textAlign="end">{humanOpens.length}</Table.Cell>
                   <Table.Cell textAlign="end">
-                    {humanOpens[0]
-                      ? new Date(humanOpens[0].timestamp).toLocaleString()
+                    {opens.length}
+                  </Table.Cell>
+                  <Table.Cell textAlign="end">
+                    {opens[0]
+                      ? opens[0].timestamp.toLocaleString("en-US", {
+                          timeZone: "America/Indiana/Indianapolis",
+                          year:   "numeric",
+                          month:  "2-digit",
+                          day:    "2-digit",
+                          hour:   "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })
                       : "—"}
                   </Table.Cell>
                 </Table.Row>
