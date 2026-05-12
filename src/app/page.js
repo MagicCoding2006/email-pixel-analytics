@@ -27,7 +27,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter]   = useState("");
 
-  // normalize each record exactly once
   function parseDate(value) {
     if (!value) return null;
     const d = value instanceof Date ? value : new Date(value);
@@ -63,7 +62,6 @@ export default function Dashboard() {
   const totalSent   = emails.length;
   const totalOpened = emails.filter(isOpened).length;
 
-  // build subject stats: sent, opened, rate
   const bySubject = useMemo(() => {
     const map = {};
     emails.forEach((e) => {
@@ -82,7 +80,6 @@ export default function Dashboard() {
       .sort((a, b) => b.rate - a.rate);
   }, [emails]);
 
-  // custom tooltip for the subject chart
   const SubjectTooltip = ({ active, payload, label }) => {
     if (!active || !payload || !payload.length) return null;
     const { sent, opened, rate } = payload[0].payload;
