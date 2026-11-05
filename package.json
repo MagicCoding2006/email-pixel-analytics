@@ -14,9 +14,9 @@
     "@emotion/styled": "^11.14.0",
     "framer-motion": "^12.7.3",
     "mongoose": "^8.13.2",
-    "next": "15.3.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "next": "15.5.29",
+    "react": "19.1.10",
+    "react-dom": "19.1.10",
     "realm-web": "^2.0.1",
     "recharts": "^2.15.2"
   },
@@ -24,7 +24,7 @@
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "eslint": "^9",
-    "eslint-config-next": "15.3.0",
+    "eslint-config-next": "15.5.29",
     "tailwindcss": "^4"
   }
 }
