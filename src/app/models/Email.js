@@ -6,7 +6,9 @@ const EmailSchema = new mongoose.Schema({
   email:     { type: String, required: true },
   subject:   { type: String, required: true },
   html:      { type: String },
-  sent_at:   { type: Date,   required: true },
+  created_at: { type: Date },
+  send_status: { type: String, enum: ['draft', 'sent'] },
+  sent_at:   { type: Date },
   events: [{
     event:       String,
     id:          String,

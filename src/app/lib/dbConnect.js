@@ -8,22 +8,29 @@ const META_URI =
   process.env.MONGODB_META_URI ||
   "mongodb+srv://alexlotkov124:Cupworld1!@cluster0.rgmqobn.mongodb.net/email_db?retryWrites=true&w=majority";
 
-let cache = global._mongoConns || (global._mongoConns = {});
+const cache = global._mongoConnectionPromises || (global._mongoConnectionPromises = {});
+
+function getDb(key, uri) {
+  if (!cache[key]) {
+    cache[key] = mongoose.createConnection(uri, {
+      bufferCommands: false,
+    }).asPromise().then(connection => {
+      console.log(`[dbConnect] ${key} DB:`, connection.name);
+      return connection;
+    }).catch(error => {
+      // Allow the next request to retry a failed initial connection.
+      delete cache[key];
+      throw error;
+    });
+  }
+
+  return cache[key];
+}
 
 export async function getTrackerDb() {
-  if (cache.tracker) return cache.tracker;
-  cache.tracker = await mongoose.createConnection(TRACKER_URI, {
-    bufferCommands: false,
-  });
-  console.log("[dbConnect] tracker DB:", cache.tracker.name);
-  return cache.tracker;
+  return getDb('tracker', TRACKER_URI);
 }
 
 export async function getMetaDb() {
-  if (cache.meta) return cache.meta;
-  cache.meta = await mongoose.createConnection(META_URI, {
-    bufferCommands: false,
-  });
-  console.log("[dbConnect] meta DB:", cache.meta.name);
-  return cache.meta;
+  return getDb('meta', META_URI);
 }

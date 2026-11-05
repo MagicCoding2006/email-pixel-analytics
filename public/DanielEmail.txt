@@ -1,0 +1,26 @@
+Hi ,
+
+59% of employees miss important information simply because they can't find it in their inboxes or messaging apps?
+
+I'm Daniel, an upcoming Purdue engineering student from Carmel, Indiana, and together with my co-founder Alex—an incoming IU computer science student—we're working to build a business reputation while genuinely hoping to help companies like yours.
+
+I noticed how  stood out for __.
+Yet, like many _ firms, your team may be spending over 3 hours a day just sorting through emails.
+
+We built a tool designed to make email management effortless. It automatically filters through all your emails organizing them into Customer, Vendor, Internal, Promotional, or Spam labels saving hours each week.
+
+Here are a few more features:
+
+Routes emails to the right team inbox—like support@ or sales@—so nothing gets stuck in the wrong place.
+Ranks emails from high, medium, and low importance.
+Provides a number of how many total emails each recipient emailed.
+Emails get logged inside Google Sheets and CRM.
+
+I'd love to offer __ a free one-month trial. No strings attached — just hoping it might genuinely help your team reclaim some time.
+
+If you're curious, just reply and I’ll personally help you get set up.
+
+
+Best regards,
+Daniel Aronov
+Cofounder

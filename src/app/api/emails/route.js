@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { getTrackerDb, getMetaDb } from '../../lib/dbConnect';
 import EmailModel from '../../models/Email';    // ← make sure this path is correct
+import { trackingSummary } from '../../lib/emailTracking';
 
 export async function GET(request) {
   try {
@@ -16,24 +17,31 @@ export async function GET(request) {
     // 3) build filter
     const { searchParams } = new URL(request.url);
     const emailQuery = searchParams.get('email') || '';
-    const filter = emailQuery
-      ? { email: { $regex: new RegExp(emailQuery, 'i') } }
-      : {};
+    const emailPattern = emailQuery
+      ? new RegExp(emailQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+      : null;
 
     // 4) fetch both sets
     const [trackerDocs, metaDocs] = await Promise.all([
-      TrackerEmail.find(filter).lean(),
-      MetaEmail.find(filter).lean(),
+      TrackerEmail.find({}).lean(),
+      MetaEmail.find({}).lean(),
     ]);
 
-    // 5) map meta by _id
-    const metaMap = Object.fromEntries(metaDocs.map(d => [d._id, d]));
+    // 5) include metadata records that have not received tracker events yet
+    const mergedMap = new Map(metaDocs.map(doc => [doc._id, { ...doc, events: [] }]));
 
-    // 6) merge: ALL fields (including sent_at) from meta + events from tracker
-    const merged = trackerDocs.map(t => ({
-      ...metaMap[t._id],  // email, subject, html, sent_at, etc.
-      events: t.events    // only the opens array comes from tracker
+    // 6) prefer metadata fields, keeping tracker data when metadata is missing
+    trackerDocs.forEach(doc => mergedMap.set(doc._id, {
+      ...doc,
+      ...mergedMap.get(doc._id),
+      _id: doc._id,
+      events: doc.events || [],
     }));
+    // Filter after joining so tracker records without an email retain their events.
+    const now = new Date();
+    const merged = Array.from(mergedMap.values())
+      .filter(doc => !emailPattern || emailPattern.test(doc.email || ''))
+      .map(doc => trackingSummary(doc, now));
 
     return NextResponse.json(merged);
   } catch (error) {

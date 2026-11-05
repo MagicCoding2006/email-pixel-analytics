@@ -1,8 +1,9 @@
 // /src/app/layout.js
 import { Providers } from "./providers";
+import "./globals.css";
 
 export const metadata = {
-  title: "Email Dashboard",
+  title: "Mail Signal · Email Analytics",
 };
 
 export default function RootLayout({ children }) {
